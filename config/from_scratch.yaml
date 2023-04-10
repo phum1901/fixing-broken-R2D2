@@ -1,0 +1,22 @@
+model:
+  seq_length: 8  
+  n_embd: 64
+  n_head: 4
+  head_size: 16
+  n_layer: 4
+  dropout: 0.1
+
+trainer:
+  max_epoch: 10
+  batch_size: 32
+
+optimizer:
+  lr: 1e-3
+
+data:
+  path: data/
+  train_size: 0.9
+
+wandb:
+  project: Fixing Broken R2-D2
+  log_freq: 100 # batch

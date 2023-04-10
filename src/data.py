@@ -1,5 +1,9 @@
+import glob
+import re
+from pathlib import Path
+
 import torch
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import Dataset
 
 
 class BaseDataset(Dataset):
@@ -31,16 +35,47 @@ class CreateDataset:
         self.seq_length = seq_length
         if size is not None:
             n = int(size * len(data))
-            self.__train_data = data[:n]
-            self.__test_data = data[n:]
+            self._train_data = data[:n]
+            self._test_data = data[n:]
         else:
-            self.__train_data = data
-            self.__test_data = None
+            self._train_data = data
+            self._test_data = None
 
     def train_dataset(self):
-        return BaseDataset(self.__train_data, self.seq_length, self.encode)
+        return BaseDataset(self._train_data, self.seq_length, self.encode)
 
     def test_dataset(self):
-        if self.__test_data is None:
+        if self._test_data is None:
             return
-        return BaseDataset(self.__test_data, self.seq_length, self.encode)
+        return BaseDataset(self._test_data, self.seq_length, self.encode)
+
+
+def extract_dialogue(file_path):
+    """
+    Extracts dialogue from an SRT file and returns it as strings.
+    """
+    with open(file_path, "r") as f:
+        srt = f.read()
+
+    # Split the SRT into individual subtitle blocks
+    blocks = srt.strip().split("\n\n")
+
+    # Extract the dialogue from each subtitle block
+    dialogue = []
+    for block in blocks:
+        # Remove any tags or timestamps from the subtitle block
+        block = re.sub("<.*?>", "", block)
+        block = re.sub("\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}", "", block)
+        block = block.split("\n\n")[1:]
+
+        dialogue.append("".join(block))
+
+    return "\n\n".join(dialogue)
+
+
+def prepare_data(dir):
+    dir = Path(dir)
+    file_paths = dir.glob("*.srt")
+    # dialogues = [extract_dialogue(file_path) for file_path in file_paths]
+    dialogues = "".join([extract_dialogue(file_path) for file_path in file_paths])
+    return dialogues
