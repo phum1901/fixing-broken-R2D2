@@ -89,9 +89,16 @@ class Model(nn.Module):
         n_layer,
         head_size,
         seq_length,
+        chars,
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
+        self.seq_length = seq_length
+        self.chars = chars
+        self.stoi = {v: k for k, v in enumerate(self.chars)}
+        self.itos = {k: v for k, v in enumerate(self.chars)}
+        self.encode = lambda s: [self.stoi[c] for c in s]
+        self.decode = lambda t: "".join([self.itos[i] for i in t])
 
         self.token_embedding = nn.Embedding(
             num_embeddings=vocab_size, embedding_dim=n_embd
@@ -108,7 +115,7 @@ class Model(nn.Module):
 
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
-    def forward(self, idx, target=None):
+    def forward(self, idx):
         b, s = idx.shape  # (batch_size, seq_length)
         token_embd = self.token_embedding(idx)  # (b, s, n_embd)
         pos_embd = self.position_embedding(
@@ -117,19 +124,14 @@ class Model(nn.Module):
         x = token_embd + pos_embd  # (b, s, n_embd)
         x = self.decoder_block(x)
         logits = self.lm_head(x)
-        if target is None:
-            loss = None
-        else:
-            b, s, c = logits.shape
-            logits = logits.view(b * s, -1)
-            loss = F.cross_entropy(logits, target.view(-1))
-        return logits, loss
+
+        return logits
 
     @torch.no_grad()
-    def generate(self, idx, max_tokens):
+    def generate(self, idx, max_tokens=100):
         # idx (b, s)
         for _ in range(max_tokens):
-            idx_crop = idx[:, -self.args.seq_length :]
+            idx_crop = idx[:, -self.seq_length :]
 
             logits = self(idx_crop)  # (b, s, vocab_size)
             logits = logits[:, -1, :]  # (b, 1, vocab_size)

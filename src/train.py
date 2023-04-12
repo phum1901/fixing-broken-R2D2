@@ -1,5 +1,6 @@
 import argparse
 import os
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -40,6 +41,7 @@ def main(args: argparse.Namespace):
 
     # init model
     config["model"]["vocab_size"] = len(dataset.chars)
+    config["model"]["chars"] = dataset.chars
     m = Model(**config["model"])
     m.to(device)
 
@@ -66,7 +68,10 @@ def main(args: argparse.Namespace):
             xb, yb = xb.to(device), yb.to(device)
 
             # feed forward
-            logits, loss = m(xb, yb)
+            logits = m(xb, yb)
+            b, s, c = logits.shape
+            logits = logits.view(b * s, -1)
+            loss = F.cross_entropy(logits, yb.view(-1))
 
             # backward
             optimizer.zero_grad(set_to_none=True)
@@ -92,7 +97,10 @@ def main(args: argparse.Namespace):
             xb, yb = xb.to(device), yb.to(device)
             # feed forward
             with torch.no_grad():
-                logits, loss = m(xb, yb)
+                logits = m(xb, yb)
+                b, s, c = logits.shape
+                logits = logits.view(b * s, -1)
+                loss = F.cross_entropy(logits, yb.view(-1))
                 mean_loss += loss * xb.shape[0]
 
             # log
@@ -102,6 +110,32 @@ def main(args: argparse.Namespace):
         pbar.set_postfix({"validation/loss": mean_loss.item()})
         if args.wandb:
             wandb.log({"epoch": epoch, "validation/loss": mean_loss.item()})
+
+        save_checkpoint(
+            config["checkpoint"]["path"],
+            model=m,
+            optimizer=optimizer,
+            epoch=epoch,
+            loss=mean_loss.item(),
+            config=config,
+        )
+
+
+def save_checkpoint(path, model, optimizer, epoch, loss, config):
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    path_save = path / f"epoch={epoch}&validation.loss={loss:.4f}.ckpt"
+    torch.save(
+        {
+            "epoch": epoch,
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "val_loss": loss,
+            "config": config,
+        },
+        path_save,
+    )
+    print(f"saving model checkpoint to {path_save}")
 
 
 if __name__ == "__main__":
