@@ -5,3 +5,6 @@ data
 
 #log
 wandb
+
+# model checkpoints
+ckpt
