@@ -20,3 +20,6 @@ data:
 wandb:
   project: Fixing Broken R2-D2
   log_freq: 100 # batch
+
+checkpoint:
+  path: ckpt
