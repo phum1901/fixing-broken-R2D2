@@ -9,13 +9,11 @@ def main(args):
     model = StageModel(args.model_path)
 
     st.title("Broken R2D2")
-    try:
-        inputs = st.text_input("Type something...")
-
-        st.write(model.predict(inputs))
-
-    except Exception as e:
-        pass
+    # inputs = st.text_input("Type something...")
+    inputs = st.text_area("Type something...", height=150)
+    if st.button("Generate Text"):
+        response = model.predict(inputs)
+        st.write(response)
 
 
 if __name__ == "__main__":

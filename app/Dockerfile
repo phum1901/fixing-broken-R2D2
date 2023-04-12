@@ -11,4 +11,4 @@ COPY src/ ./src
 COPY app/ ./app 
 COPY model.pt model.pt 
 
-CMD ["streamlit", "run", "app/main.py", "--", "--model_path", "model.pt"]
+ENTRYPOINT ["streamlit", "run", "app/main.py", "--", "--model_path", "model.pt"]
