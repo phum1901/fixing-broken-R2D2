@@ -50,6 +50,21 @@ class CreateDataset:
         return BaseDataset(self._test_data, self.seq_length, self.encode)
 
 
+def read_srt(srt_path):
+    with open(srt_path, "r", encoding="utf-8-sig") as f:
+        text = f.read()
+    return text
+
+
+def preprocess_text(text):
+    text = re.sub(r"\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}", "", text)
+    text = re.sub(r"\d{1,}\n\n", "", text)
+    text = re.sub(r"- ", "", text)
+    text = re.sub(r"<\w+>((.|\n)*?)</\w+>", r"\1", text)
+    text = re.sub(r"[-:–—]", "", text)
+    return text
+
+
 def extract_dialogue(file_path):
     """
     Extracts dialogue from an SRT file and returns it as strings.
@@ -77,5 +92,8 @@ def prepare_data(dir):
     dir = Path(dir)
     file_paths = dir.glob("*.srt")
     # dialogues = [extract_dialogue(file_path) for file_path in file_paths]
-    dialogues = "".join([extract_dialogue(file_path) for file_path in file_paths])
+    # dialogues = "".join([extract_dialogue(file_path) for file_path in file_paths])
+    texts = [read_srt(f) for f in file_paths]
+    dialogues = [preprocess_text(t) for t in texts]
+    dialogues = "".join(dialogues)
     return dialogues
