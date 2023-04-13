@@ -68,7 +68,7 @@ def main(args: argparse.Namespace):
             xb, yb = xb.to(device), yb.to(device)
 
             # feed forward
-            logits = m(xb, yb)
+            logits = m(xb)
             b, s, c = logits.shape
             logits = logits.view(b * s, -1)
             loss = F.cross_entropy(logits, yb.view(-1))
@@ -97,7 +97,7 @@ def main(args: argparse.Namespace):
             xb, yb = xb.to(device), yb.to(device)
             # feed forward
             with torch.no_grad():
-                logits = m(xb, yb)
+                logits = m(xb)
                 b, s, c = logits.shape
                 logits = logits.view(b * s, -1)
                 loss = F.cross_entropy(logits, yb.view(-1))
