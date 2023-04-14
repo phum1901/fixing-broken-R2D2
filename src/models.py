@@ -32,13 +32,13 @@ class AttentionHead(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_embd, n_head, head_size, seq_length, dropout) -> None:
+    def __init__(self, n_embd, n_head, seq_length, dropout) -> None:
         super().__init__()
         assert n_embd % n_head == 0
 
         self.heads = nn.ModuleList(
             [
-                AttentionHead(n_embd, head_size, seq_length, dropout)
+                AttentionHead(n_embd, n_embd // n_head, seq_length, dropout)
                 for _ in range(n_head)
             ]
         )
@@ -67,9 +67,9 @@ class FeedForward(nn.Module):
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self, n_embd, n_head, head_size, seq_length, dropout) -> None:
+    def __init__(self, n_embd, n_head, seq_length, dropout) -> None:
         super().__init__()
-        self.attn = MultiHeadAttention(n_embd, n_head, head_size, seq_length, dropout)
+        self.attn = MultiHeadAttention(n_embd, n_head, seq_length, dropout)
         self.ffwd = FeedForward(n_embd, dropout)
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
@@ -87,7 +87,6 @@ class Model(nn.Module):
         n_embd,
         n_head,
         n_layer,
-        head_size,
         seq_length,
         chars,
         dropout: float = 0.0,
@@ -107,10 +106,7 @@ class Model(nn.Module):
             num_embeddings=seq_length, embedding_dim=n_embd
         )
         self.decoder_block = nn.Sequential(
-            *(
-                DecoderBlock(n_embd, n_head, head_size, seq_length, dropout)
-                for _ in range(n_layer)
-            )
+            *(DecoderBlock(n_embd, n_head, seq_length, dropout) for _ in range(n_layer))
         )
 
         self.lm_head = nn.Linear(n_embd, vocab_size)
@@ -128,13 +124,16 @@ class Model(nn.Module):
         return logits
 
     @torch.no_grad()
-    def generate(self, idx, max_tokens=100):
+    def generate(self, idx, max_tokens=100, temperature=1.0, top_k=None):
         # idx (b, s)
         for _ in range(max_tokens):
             idx_crop = idx[:, -self.seq_length :]
 
             logits = self(idx_crop)  # (b, s, vocab_size)
-            logits = logits[:, -1, :]  # (b, 1, vocab_size)
+            logits = logits[:, -1, :] / temperature  # (b, vocab_size)
+            if top_k is not None:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < torch.min(v)] = float("-inf")
 
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
