@@ -18,4 +18,4 @@ jobs:
       - name: install dep 
         run: |
           python -m pip install --upgrade pip==23.0.1
-          pip install ./requirements/dev.txt
+          python -m pip install -r ./requirements/dev.txt
