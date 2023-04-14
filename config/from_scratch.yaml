@@ -1,3 +1,4 @@
+seed: 1901
 model:
   seq_length: 8  
   n_embd: 64
@@ -8,7 +9,7 @@ model:
 
 trainer:
   max_epoch: 10
-  batch_size: 32
+  batch_size: 64
 
 optimizer:
   lr: 1e-3
