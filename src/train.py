@@ -19,7 +19,19 @@ def main(args: argparse.Namespace):
     # read config
     with open(args.config, "r") as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
+    # wandb
+    if args.wandb:
+        import wandb
 
+        try:
+            wandb.init(project=config["wandb"]["project"], config=config)
+            config = wandb.config
+        except:
+            wandb.init(config=config)
+            config = wandb.config
+        # wandb.watch(models=m, log_freq=config["wandb"]["log_freq"])  # log every n batch
+    # for reproducibility
+    torch.manual_seed(config["seed"])
     # setup device
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -44,19 +56,33 @@ def main(args: argparse.Namespace):
     config["model"]["chars"] = dataset.chars
     m = Model(**config["model"])
     m.to(device)
+    if args.wandb:
+        wandb.watch(models=m, log_freq=config["wandb"]["log_freq"])  # log every n batch
 
+    # # wandb
+    # if args.wandb:
+    #     import wandb
+
+    #     wandb.init(project=config["wandb"]["project"], config=config)
+    #     wandb.watch(models=m, log_freq=config["wandb"]["log_freq"])  # log every n batch
     # optimizer
     optimizer = torch.optim.AdamW(m.parameters(), lr=float(config["optimizer"]["lr"]))
 
-    # wandb
-    if args.wandb:
-        import wandb
-
-        wandb.init(project=config["wandb"]["project"], config=config)
-        wandb.watch(models=m, log_freq=config["wandb"]["log_freq"])  # log every n batch
+    # poor man's scheduler (will be fix later)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=config["scheduler"]["max_lr"],
+        steps_per_epoch=len(train_dl),
+        epochs=config["trainer"]["max_epoch"],
+    )
 
     # training loop
     epochs = config["trainer"]["max_epoch"]
+
+    # best validation loss
+    best_val_loss = float("inf")
+    stopping_counter = 0
+    min_delta = 1e-4
 
     for epoch in range(0, epochs):
         # train
@@ -77,6 +103,7 @@ def main(args: argparse.Namespace):
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             # log
             mean_loss += loss * xb.shape[0]
@@ -87,6 +114,7 @@ def main(args: argparse.Namespace):
             if args.wandb and ib % config["wandb"]["log_freq"] == 0:
                 wandb.log({"step": epoch * len(train_dl.dataset) + ib})
                 wandb.log({"train/loss": loss.item()})
+                wandb.log({"lr": scheduler.get_last_lr()[0]})
 
         # validation
         pbar = tqdm(val_dl)
@@ -111,14 +139,32 @@ def main(args: argparse.Namespace):
         if args.wandb:
             wandb.log({"epoch": epoch, "validation/loss": mean_loss.item()})
 
-        save_checkpoint(
-            config["checkpoint"]["path"],
-            model=m,
-            optimizer=optimizer,
-            epoch=epoch,
-            loss=mean_loss.item(),
-            config=config,
-        )
+        # poor man's earlystopping
+        if mean_loss - min_delta < best_val_loss:
+            best_val_loss = mean_loss
+            stopping_counter = 0
+            # save best only
+            save_checkpoint(
+                config["checkpoint"]["path"],
+                model=m,
+                optimizer=optimizer,
+                epoch=epoch,
+                loss=mean_loss.item(),
+                config=config if isinstance(config, dict) else dict(config),
+            )
+        elif stopping_counter >= 5:  # epoch
+            return
+        else:
+            stopping_counter += 1
+
+        # save_checkpoint(
+        #     config["checkpoint"]["path"],
+        #     model=m,
+        #     optimizer=optimizer,
+        #     epoch=epoch,
+        #     loss=mean_loss.item(),
+        #     config=config if isinstance(config, dict) else dict(config),
+        # )
 
 
 def save_checkpoint(path, model, optimizer, epoch, loss, config):
@@ -140,7 +186,9 @@ def save_checkpoint(path, model, optimizer, epoch, loss, config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True)
+    parser.add_argument(
+        "--config", type=str, default="config/from_scratch.yaml", required=True
+    )
     parser.add_argument("--wandb", action="store_true")
     args = parser.parse_args()
     main(args)
