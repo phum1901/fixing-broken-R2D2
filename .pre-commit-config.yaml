@@ -1,0 +1,16 @@
+repos:
+  # a set of useful Python-based pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+      # list of definitions and supported hooks: https://pre-commit.com/hooks.html
+      - id: trailing-whitespace      
+      - id: check-toml               
+      - id: check-yaml               
+      - id: check-json               
+  # black python autoformatting
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+    # additional configuration of black in pyproject.toml
