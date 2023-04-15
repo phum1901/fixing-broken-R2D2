@@ -11,6 +11,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from src.callbacks import EarlyStopping, ModelCheckpoint
 from src.data import CreateDataset, prepare_data
 from src.models import Model
 
@@ -44,12 +45,8 @@ def main(args: argparse.Namespace):
     )
     train_ds = dataset.train_dataset()
     val_ds = dataset.test_dataset()
-    train_dl = DataLoader(
-        dataset=train_ds, batch_size=config["trainer"]["batch_size"], shuffle=True
-    )
-    val_dl = DataLoader(
-        dataset=val_ds, batch_size=config["trainer"]["batch_size"], shuffle=False
-    )
+    train_dl = DataLoader(dataset=train_ds, batch_size=config["trainer"]["batch_size"], shuffle=True)
+    val_dl = DataLoader(dataset=val_ds, batch_size=config["trainer"]["batch_size"], shuffle=False)
 
     # init model
     config["model"]["vocab_size"] = len(dataset.chars)
@@ -71,18 +68,19 @@ def main(args: argparse.Namespace):
     # poor man's scheduler (will be fix later)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
-        max_lr=config["scheduler"]["max_lr"],
+        max_lr=float(config["scheduler"]["max_lr"]),
         steps_per_epoch=len(train_dl),
         epochs=config["trainer"]["max_epoch"],
     )
 
+    # callbacks
+    early_stopping = EarlyStopping(
+        patience=int(config["callback"]["patience"]), min_delta=float(config["callback"]["min_delta"])
+    )
+    model_checkpoint = ModelCheckpoint(config["checkpoint"]["path"])
+
     # training loop
     epochs = config["trainer"]["max_epoch"]
-
-    # best validation loss
-    best_val_loss = float("inf")
-    stopping_counter = 0
-    min_delta = 1e-4
 
     for epoch in range(0, epochs):
         # train
@@ -139,32 +137,21 @@ def main(args: argparse.Namespace):
         if args.wandb:
             wandb.log({"epoch": epoch, "validation/loss": mean_loss.item()})
 
-        # poor man's earlystopping
-        if mean_loss - min_delta < best_val_loss:
-            best_val_loss = mean_loss
-            stopping_counter = 0
-            # save best only
-            save_checkpoint(
-                config["checkpoint"]["path"],
-                model=m,
-                optimizer=optimizer,
-                epoch=epoch,
-                loss=mean_loss.item(),
-                config=config if isinstance(config, dict) else dict(config),
-            )
-        elif stopping_counter >= 5:  # epoch
-            return
-        else:
-            stopping_counter += 1
+        # callbacks
+        save_path = model_checkpoint(
+            mean_loss.item(),
+            model=m,
+            optimizer=optimizer,
+            epoch=epoch,
+            config=config if isinstance(config, dict) else dict(config),
+        )
+        if args.wandb and save_path is not None:
+            art = wandb.Artifact(f"{wandb.run.id}", type="model")
+            art.add_file(save_path)
+            wandb.log_artifact(art, aliases=["latest"])
 
-        # save_checkpoint(
-        #     config["checkpoint"]["path"],
-        #     model=m,
-        #     optimizer=optimizer,
-        #     epoch=epoch,
-        #     loss=mean_loss.item(),
-        #     config=config if isinstance(config, dict) else dict(config),
-        # )
+        if early_stopping(mean_loss.item()):
+            break
 
 
 def save_checkpoint(path, model, optimizer, epoch, loss, config):
@@ -186,9 +173,7 @@ def save_checkpoint(path, model, optimizer, epoch, loss, config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="config/from_scratch.yaml", required=True
-    )
+    parser.add_argument("--config", type=str, default="config/from_scratch.yaml", required=True)
     parser.add_argument("--wandb", action="store_true")
     args = parser.parse_args()
     main(args)
