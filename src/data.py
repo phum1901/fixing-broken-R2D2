@@ -1,4 +1,3 @@
-import glob
 import re
 from pathlib import Path
 
@@ -63,29 +62,6 @@ def preprocess_text(text):
     text = re.sub(r"<\w+>((.|\n)*?)</\w+>", r"\1", text)
     text = re.sub(r"[-:–—]", "", text)
     return text
-
-
-def extract_dialogue(file_path):
-    """
-    Extracts dialogue from an SRT file and returns it as strings.
-    """
-    with open(file_path, "r") as f:
-        srt = f.read()
-
-    # Split the SRT into individual subtitle blocks
-    blocks = srt.strip().split("\n\n")
-
-    # Extract the dialogue from each subtitle block
-    dialogue = []
-    for block in blocks:
-        # Remove any tags or timestamps from the subtitle block
-        block = re.sub("<.*?>", "", block)
-        block = re.sub("\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}", "", block)
-        block = block.split("\n\n")[1:]
-
-        dialogue.append("".join(block))
-
-    return "\n\n".join(dialogue)
 
 
 def prepare_data(dir):
