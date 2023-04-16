@@ -18,9 +18,7 @@ class AttentionHead(nn.Module):
         k = self.key(x)  # (b, s, c) --> (b, s, head_size)
         q = self.query(x)  # (b, s, c) --> (b, s, head_size)
 
-        attn = (
-            q @ k.transpose(-2, -1) * k.size(-1) ** -0.5
-        )  # (b, s, head_size) @ (b, head_size, s) --> (b, s, s)
+        attn = q @ k.transpose(-2, -1) * k.size(-1) ** -0.5  # (b, s, head_size) @ (b, head_size, s) --> (b, s, s)
 
         attn = attn.masked_fill(self.tril[:s, :s] == 0, float("-inf"))
         attn = F.softmax(attn, dim=-1)
@@ -37,10 +35,7 @@ class MultiHeadAttention(nn.Module):
         assert n_embd % n_head == 0
 
         self.heads = nn.ModuleList(
-            [
-                AttentionHead(n_embd, n_embd // n_head, seq_length, dropout)
-                for _ in range(n_head)
-            ]
+            [AttentionHead(n_embd, n_embd // n_head, seq_length, dropout) for _ in range(n_head)]
         )
         self.proj = nn.Linear(n_embd, n_embd)
         self.dropout = nn.Dropout(dropout)
@@ -99,24 +94,16 @@ class Model(nn.Module):
         self.encode = lambda s: [self.stoi[c] for c in s]
         self.decode = lambda t: "".join([self.itos[i] for i in t])
 
-        self.token_embedding = nn.Embedding(
-            num_embeddings=vocab_size, embedding_dim=n_embd
-        )
-        self.position_embedding = nn.Embedding(
-            num_embeddings=seq_length, embedding_dim=n_embd
-        )
-        self.decoder_block = nn.Sequential(
-            *(DecoderBlock(n_embd, n_head, seq_length, dropout) for _ in range(n_layer))
-        )
+        self.token_embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=n_embd)
+        self.position_embedding = nn.Embedding(num_embeddings=seq_length, embedding_dim=n_embd)
+        self.decoder_block = nn.Sequential(*(DecoderBlock(n_embd, n_head, seq_length, dropout) for _ in range(n_layer)))
 
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx):
         b, s = idx.shape  # (batch_size, seq_length)
         token_embd = self.token_embedding(idx)  # (b, s, n_embd)
-        pos_embd = self.position_embedding(
-            torch.arange(s, device=idx.device)
-        )  # (b, s, n_embd)
+        pos_embd = self.position_embedding(torch.arange(s, device=idx.device))  # (b, s, n_embd)
         x = token_embd + pos_embd  # (b, s, n_embd)
         x = self.decoder_block(x)
         logits = self.lm_head(x)

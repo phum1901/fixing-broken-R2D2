@@ -17,7 +17,7 @@ def save_model_checkpoint_to_torchscript(ckpt_path: str, save_path: str):
 class StageModel:
     def __init__(self, model_path=None):
         if model_path is None:
-            model_path = "model.pt"
+            model_path = "artifacts/model.pt"
         self.model = torch.jit.load(model_path)
         self.chars = self.model.chars
         self.seq_length = self.model.seq_length
@@ -28,9 +28,7 @@ class StageModel:
 
     @torch.no_grad()
     def generate(self, text, max_tokens=100, temperature=1.0, top_k=None):
-        idx = torch.tensor(self.encode(text), dtype=torch.int64).unsqueeze(
-            dim=0
-        )  # batch like (b, s, c)
+        idx = torch.tensor(self.encode(text), dtype=torch.int64).unsqueeze(dim=0)  # batch like (b, s, c)
         for _ in range(max_tokens):
             idx_crop = idx[:, -self.seq_length :]
 

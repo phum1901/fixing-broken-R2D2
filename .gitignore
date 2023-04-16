@@ -8,3 +8,6 @@ wandb
 
 # model checkpoints
 ckpt
+
+# model artifacts
+artifacts
