@@ -1,13 +1,8 @@
 import argparse
-import os
-from pathlib import Path
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import yaml
-from torch.distributed import destroy_process_group, init_process_group
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -56,16 +51,10 @@ def main(args: argparse.Namespace):
     if args.wandb:
         wandb.watch(models=m, log_freq=config["wandb"]["log_freq"])  # log every n batch
 
-    # # wandb
-    # if args.wandb:
-    #     import wandb
-
-    #     wandb.init(project=config["wandb"]["project"], config=config)
-    #     wandb.watch(models=m, log_freq=config["wandb"]["log_freq"])  # log every n batch
     # optimizer
     optimizer = torch.optim.AdamW(m.parameters(), lr=float(config["optimizer"]["lr"]))
 
-    # poor man's scheduler (will be fix later)
+    # scheduler
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
         max_lr=float(config["scheduler"]["max_lr"]),
@@ -152,23 +141,6 @@ def main(args: argparse.Namespace):
 
         if early_stopping(mean_loss.item()):
             break
-
-
-def save_checkpoint(path, model, optimizer, epoch, loss, config):
-    path = Path(path)
-    path.mkdir(parents=True, exist_ok=True)
-    path_save = path / f"epoch={epoch}&validation.loss={loss:.4f}.ckpt"
-    torch.save(
-        {
-            "epoch": epoch,
-            "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "val_loss": loss,
-            "config": config,
-        },
-        path_save,
-    )
-    print(f"saving model checkpoint to {path_save}")
 
 
 if __name__ == "__main__":
