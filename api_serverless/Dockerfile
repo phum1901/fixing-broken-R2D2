@@ -6,6 +6,6 @@ RUN pip install -r requirements.txt
 
 COPY src/ ./src
 COPY api_serverless/api.py ./api.py
-COPY model.pt model.pt 
+COPY artifacts/model.pt artifacts/model.pt
 
 CMD ["api.handler"]

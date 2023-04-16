@@ -8,7 +8,6 @@ from src.stage_model import StageModel
 
 
 def main(args):
-    # predictor = StageModel(args.model_path)
     predictor = PredictorBackend(args.model_url)
 
     st.title("Broken R2D2")
@@ -21,16 +20,12 @@ def main(args):
         value=1.0,
         help="Medium temperature (0.3 to 0.7): Balanced creativity and coherence. High temperature (0.7 to 1): Highly creative and diverse, but potentially less coherent",
     )
-    # top_k = st.slider(
-    #     "Select top K candidates", 1, len(model.chars), step=10, value=len(model.chars)
-    # )
+    top_k = st.slider("Select top K candidates", 1, 100, step=1, value=20)
 
     # inputs = st.text_input("Type something...")
     inputs = st.text_area("Type something...", height=150)
     if st.button("Generate Text") and len(inputs) > 0:
-        response = predictor.run(
-            inputs, max_tokens=max_tokens, temperature=temperature, top_k=None
-        )
+        response = predictor.run(inputs, max_tokens=max_tokens, temperature=temperature, top_k=top_k)
         st.write(response)
 
 
