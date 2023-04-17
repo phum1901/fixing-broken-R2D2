@@ -8,4 +8,6 @@ COPY src/ ./src
 COPY api_serverless/api.py ./api.py
 COPY artifacts/model.pt artifacts/model.pt
 
+EXPOSE 8080
+
 CMD ["api.handler"]
