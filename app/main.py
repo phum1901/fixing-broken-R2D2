@@ -20,7 +20,14 @@ def main(args):
         value=1.0,
         help="Medium temperature (0.3 to 0.7): Balanced creativity and coherence. High temperature (0.7 to 1): Highly creative and diverse, but potentially less coherent",
     )
-    top_k = st.slider("Select top K candidates", 1, 100, step=1, value=20)
+    top_k = st.slider(
+        "Select top K candidates",
+        1,
+        100,
+        step=1,
+        value=20,
+        help="Consider the top k characters with the highest probability of occurring next",
+    )
 
     # inputs = st.text_input("Type something...")
     inputs = st.text_area("Type something...", height=150)
