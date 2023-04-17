@@ -1,2 +1,4 @@
 -c prod.txt
+tqdm
+wandb
 pre-commit
