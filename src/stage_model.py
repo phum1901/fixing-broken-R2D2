@@ -44,3 +44,14 @@ class StageModel:
 
         idx = idx.tolist()[0]
         return self.decode(idx)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ckpt_path", type=str, required=True)
+    parser.add_argument("--save_path", type=str, required=True)
+    args = parser.parse_args()
+    save_model_checkpoint_to_torchscript(args.ckpt_path, args.save_path)
+    print(f"save model checkpoint from {args.ckpt_path} to torch script {args.save_path}")
