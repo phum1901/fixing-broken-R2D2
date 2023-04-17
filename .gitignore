@@ -1,7 +1,6 @@
 venv
 __pycache__
 .vscode
-data
 
 #log
 wandb
@@ -9,5 +8,3 @@ wandb
 # model checkpoints
 ckpt
 
-# model artifacts
-artifacts
